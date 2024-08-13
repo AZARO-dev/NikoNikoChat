@@ -3,7 +3,7 @@ import ctypes
 import threading
 import socket
 import random
-import time
+from datetime import datetime
 
 class Marquee(tk.Canvas):
     def __init__(self, parent, fps=60, min_speed=2, max_speed=10, text_color="white", font=("Helvetica", 24), **kwargs):
@@ -70,11 +70,12 @@ def open_input_window(root, marquee, client_socket, server_address):
 
     tk.Button(input_window, text="Send", command=send_text).pack(side=tk.TOP, pady=10)
 
-def receive_messages(client_socket, marquee, server_address):
+def receive_messages(client_socket, marquee, server_address,log_text):
     while True:
         try:
             message, _ = client_socket.recvfrom(1024)
             decoded_message = message.decode()
+            update_log_window(log_text, message.decode())
 
             if decoded_message == "heartbeat":
                 # サーバからのハートビートに応答
@@ -91,6 +92,23 @@ def receive_messages(client_socket, marquee, server_address):
 def quit_me(root_window):
         root_window.quit()
         root_window.destroy()
+
+def create_log_window():
+    log_window = tk.Toplevel()
+    log_window.title("Log Window")
+    log_window.geometry("400x400")
+
+    log_text = tk.Text(log_window, state='disabled', wrap='word')
+    log_text.pack(expand=True, fill='both')
+
+    return log_text
+
+def update_log_window(log_text, message):
+    if message!="heartbeat":
+        log_text.config(state='normal')
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_text.insert('1.0', timestamp+" - "+message + '\n')  # 最新メッセージを上部に挿入
+        log_text.config(state='disabled')
 
 def main():
     server_ip = input("Enter server IP: ")
@@ -115,8 +133,10 @@ def main():
     make_window_transparent(root)
     open_input_window(root, marquee, client_socket, server_address)
 
+    log_text = create_log_window()
+
     # 修正: server_addressをreceive_messagesに渡す
-    threading.Thread(target=receive_messages, args=(client_socket, marquee, server_address)).start()
+    threading.Thread(target=receive_messages, args=(client_socket, marquee, server_address,log_text)).start()
 
     def on_resize(event):
         marquee.config(width=event.width, height=event.height)
